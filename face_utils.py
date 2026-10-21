@@ -7,8 +7,10 @@ import os
 import numpy as np
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATASET_DIR = os.path.join(BASE_DIR, "dataset")
-TRAINER_PATH = os.path.join(BASE_DIR, "trainer", "trainer.yml")
+# Railway Volume (permanent storage). Local par ye automatically project folder use karega.
+DATA_DIR = os.environ.get("DATA_DIR", BASE_DIR)
+DATASET_DIR = os.path.join(DATA_DIR, "dataset")
+TRAINER_PATH = os.path.join(DATA_DIR, "trainer", "trainer.yml")
 
 os.makedirs(DATASET_DIR, exist_ok=True)
 os.makedirs(os.path.dirname(TRAINER_PATH), exist_ok=True)
