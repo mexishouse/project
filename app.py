@@ -32,6 +32,28 @@ last_marked = {}          # employee_id -> timestamp (to avoid spamming DB check
 camera = None             # single shared VideoCapture instance
 CAMERA_INDEX = 0          # change to 1 if your webcam is not the default device
 
+# --- PERFORMANCE OPTIMIZATION: Cache recognizer & employee map in memory ---
+_cached_recognizer = None
+_cached_trained_map = None
+
+def get_cached_recognizer(force_reload=False):
+    global _cached_recognizer, _cached_trained_map
+    if _cached_recognizer is None or force_reload:
+        _cached_recognizer = fu.load_recognizer()
+    return _cached_recognizer
+
+def get_cached_trained_map(force_reload=False):
+    global _cached_trained_map
+    if _cached_trained_map is None or force_reload:
+        employees = db.get_trained_employees()
+        _cached_trained_map = {e["id"]: e for e in employees}
+    return _cached_trained_map
+
+def invalidate_cache():
+    global _cached_recognizer, _cached_trained_map
+    _cached_recognizer = None
+    _cached_trained_map = None
+
 
 def _open_camera(index):
     """Try the best backend for the current OS, with a plain fallback."""
@@ -130,6 +152,7 @@ def dashboard():
 @login_required
 def approve_employee(employee_id):
     db.approve_employee(employee_id)
+    invalidate_cache()
     flash("Employee approved — their face will now be recognized in Live Attendance.", "success")
     return redirect(request.referrer or url_for("dashboard"))
 
@@ -138,6 +161,7 @@ def approve_employee(employee_id):
 @login_required
 def revoke_employee(employee_id):
     db.revoke_approval(employee_id)
+    invalidate_cache()
     flash("Approval revoked — this employee will no longer be recognized until re-approved.", "success")
     return redirect(request.referrer or url_for("employees"))
 
@@ -161,6 +185,7 @@ def employees():
 @login_required
 def delete_employee(employee_id):
     db.delete_employee(employee_id)
+    invalidate_cache()
     flash("Employee removed.", "success")
     return redirect(url_for("employees"))
 
@@ -222,6 +247,12 @@ def upload_capture_frame(employee_id):
         if frame is None:
             return jsonify({"success": False, "error": "Invalid image decode"})
 
+        # --- OPTIMIZATION: Resize incoming frame to max width 640px to reduce lag ---
+        h_orig, w_orig = frame.shape[:2]
+        if w_orig > 640:
+            scale = 640 / w_orig
+            frame = cv2.resize(frame, (640, int(h_orig * scale)))
+
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         faces = fu.detect_faces(gray)
 
@@ -262,6 +293,7 @@ def train(employee_id):
     ok, message = fu.train_model()
     if ok:
         db.mark_trained(employee_id)
+        invalidate_cache()  # Clear cache so new training takes effect immediately
         flash(f"Face data trained! {message} Now waiting for admin approval on the Dashboard before this person can be recognized.", "success")
     else:
         flash(f"Training failed: {message}", "error")
@@ -293,8 +325,14 @@ def recognize_frame():
         if frame is None:
             return jsonify({"success": False, "error": "Invalid image"})
 
-        recognizer = fu.load_recognizer()
-        trained_map = {e["id"]: e for e in db.get_trained_employees()}
+        # --- OPTIMIZATION: Resize incoming frame to max width 640px to eliminate lag ---
+        h_orig, w_orig = frame.shape[:2]
+        if w_orig > 640:
+            scale = 640 / w_orig
+            frame = cv2.resize(frame, (640, int(h_orig * scale)))
+
+        recognizer = get_cached_recognizer()
+        trained_map = get_cached_trained_map()
 
         if recognizer is None:
             return jsonify({"success": True, "results": [], "message": "No trained faces yet."})
