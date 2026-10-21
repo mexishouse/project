@@ -6,7 +6,10 @@ import sqlite3
 import os
 from datetime import datetime
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "attendance.db")
+DB_PATH = os.path.join(
+    os.environ.get("DATA_DIR", os.path.dirname(os.path.abspath(__file__))),
+    "attendance.db",
+)
 
 DEFAULT_DEPARTMENTS = [
     "Information Technology",
