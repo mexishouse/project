@@ -9,10 +9,12 @@ import platform
 import base64
 import cv2
 import numpy as np
+import io
+import zipfile
 from functools import wraps
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    session, Response, jsonify, flash
+    session, Response, jsonify, flash, send_file
 )
 
 import database as db
@@ -406,6 +408,28 @@ def reports():
     departments = db.get_all_departments()
     return render_template("reports.html", logs=logs, departments=departments,
                            selected_date=date_filter, selected_dept=dept_filter)
+
+
+# ---------------- Dataset Download (for syncing to local folder) ----------------
+@app.route("/api/dataset_zip")
+def dataset_zip():
+    # Simple secret-key protection (admin login ya sync key dono chalenge)
+    sync_key = os.environ.get("SYNC_KEY", "")
+    provided = request.args.get("key", "")
+    if not session.get("logged_in") and not (sync_key and provided == sync_key):
+        return jsonify({"error": "Unauthorized"}), 401
+    mem = io.BytesIO()
+    with zipfile.ZipFile(mem, "w", zipfile.ZIP_DEFLATED) as zf:
+        if os.path.isdir(fu.DATASET_DIR):
+            for emp_id in os.listdir(fu.DATASET_DIR):
+                emp_dir = os.path.join(fu.DATASET_DIR, emp_id)
+                if not os.path.isdir(emp_dir):
+                    continue
+                for img in os.listdir(emp_dir):
+                    zf.write(os.path.join(emp_dir, img), arcname=f"{emp_id}/{img}")
+    mem.seek(0)
+    return send_file(mem, mimetype="application/zip",
+                     as_attachment=True, download_name="dataset.zip")
 
 
 if __name__ == "__main__":
