@@ -39,7 +39,8 @@ def preprocess_face(gray_face):
 
 
 def detect_faces(gray_frame):
-    return FACE_CASCADE.detectMultiScale(gray_frame, scaleFactor=1.2, minNeighbors=5, minSize=(80, 80))
+    # OPTIMIZED: Increased scaleFactor and minSize for faster processing & lower camera lag
+    return FACE_CASCADE.detectMultiScale(gray_frame, scaleFactor=1.3, minNeighbors=5, minSize=(100, 100))
 
 
 def employee_dataset_dir(employee_id):
