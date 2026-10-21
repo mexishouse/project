@@ -22,7 +22,7 @@ if FACE_CASCADE.empty() and hasattr(cv2, "data"):
 if FACE_CASCADE.empty():
     raise RuntimeError(
         "Could not load haarcascade_frontalface_default.xml. Make sure it exists next to "
-        "face_utils.py, or reinstall: pip install \"opencv-contrib-python>=4.10,<5\""
+        "face_utils.py, or reinstall: pip install \"opencv-contrib-python-headless>=4.10,<5\""
     )
 
 SAMPLES_NEEDED = 60
@@ -58,11 +58,9 @@ def train_model():
     """Train LBPH recognizer using all images inside dataset/<employee_id>/*.jpg"""
     if not hasattr(cv2, "face"):
         return False, (
-            "cv2.face module not found. This means 'opencv-python' and "
-            "'opencv-contrib-python' are both installed and conflicting. "
-            "Fix: pip uninstall opencv-python opencv-python-headless "
-            "opencv-contrib-python opencv-contrib-python-headless -y "
-            "then: pip install opencv-contrib-python"
+            "cv2.face module not found. Make sure 'opencv-contrib-python-headless' is installed. "
+            "Fix: pip uninstall opencv-python opencv-python-headless opencv-contrib-python opencv-contrib-python-headless -y "
+            "then: pip install opencv-contrib-python-headless"
         )
 
     recognizer = cv2.face.LBPHFaceRecognizer_create()
